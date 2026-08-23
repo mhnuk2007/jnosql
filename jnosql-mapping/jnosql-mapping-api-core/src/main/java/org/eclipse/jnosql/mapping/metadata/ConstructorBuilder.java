@@ -11,6 +11,7 @@
  *   Contributors:
  *
  *   Otavio Santana
+ *   Mohan Lal
  */
 package org.eclipse.jnosql.mapping.metadata;
 
@@ -18,7 +19,7 @@ package org.eclipse.jnosql.mapping.metadata;
 import jakarta.nosql.NoSQLException;
 
 import java.util.List;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.ServiceLoader;
 
 /**
@@ -31,10 +32,28 @@ import java.util.ServiceLoader;
  */
 public interface ConstructorBuilder {
 
-    ConstructorBuilderSupplier CONSTRUCTOR_BUILDER_SUPPLIER = ServiceLoader.load(ConstructorBuilderSupplier.class)
-            .findFirst()
-            .orElseThrow(() ->
-            new NoSQLException("There is not implementation for the ConstructorBuilderSupplier"));
+    ConstructorBuilderSupplier CONSTRUCTOR_BUILDER_SUPPLIER = loadConstructorBuilderSupplier();
+
+    private static ConstructorBuilderSupplier loadConstructorBuilderSupplier() {
+        ClassLoader tccl = Thread.currentThread().getContextClassLoader();
+
+        if (tccl != null) {
+            Optional<ConstructorBuilderSupplier> viaTccl =
+                    ServiceLoader.load(ConstructorBuilderSupplier.class, tccl).findFirst();
+
+            if (viaTccl.isPresent()) {
+                return viaTccl.get();
+            }
+        }
+
+        return ServiceLoader.load(
+                        ConstructorBuilderSupplier.class,
+                        ConstructorBuilder.class.getClassLoader())
+                .findFirst()
+                .orElseThrow(() ->
+                        new NoSQLException("There is not implementation for the ConstructorBuilderSupplier"));
+    }
+
     /**
      * Returns the constructor parameters.
      *
@@ -68,7 +87,6 @@ public interface ConstructorBuilder {
      * @return the ConstructorBuilder instance
      */
     static ConstructorBuilder of(ConstructorMetadata constructor){
-        Objects.requireNonNull(constructor, "constructor is required");
         return CONSTRUCTOR_BUILDER_SUPPLIER.apply(constructor);
     }
 }
