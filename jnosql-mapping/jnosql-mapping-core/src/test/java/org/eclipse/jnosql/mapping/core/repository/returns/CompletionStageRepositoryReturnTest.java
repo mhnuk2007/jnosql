@@ -79,6 +79,31 @@ class CompletionStageRepositoryReturnTest {
     }
 
     @Test
+    @DisplayName("Should return optional entity wrapped in CompletionStage")
+    void shouldReturnOptionalCompletionStage() throws NoSuchMethodException {
+        Person ada = new Person("Ada");
+
+        DynamicReturn<Person> dynamic = DynamicReturn.builder()
+                .singleResult(() -> Optional.of(ada))
+                .classSource(Person.class)
+                .result(() -> Stream.of(ada))
+                .methodSource(
+                        PersonRepository.class.getMethod("getOptionalPerson"))
+                .build();
+
+        CompletionStage<Optional<Person>> result =
+                (CompletionStage<Optional<Person>>)
+                        repositoryReturn.convert(dynamic);
+
+        assertThat(result)
+                .isNotNull();
+
+        assertThat(result.toCompletableFuture().join())
+                .isPresent()
+                .contains(ada);
+    }
+
+    @Test
     @DisplayName("Should return paginated entity wrapped in CompletionStage")
     void shouldReturnCompletionStagePage() throws NoSuchMethodException {
         Person ada = new Person("Ada");
@@ -108,6 +133,8 @@ class CompletionStageRepositoryReturnTest {
     private interface PersonRepository {
 
         CompletionStage<Person> getPerson();
+
+        CompletionStage<Optional<Person>> getOptionalPerson();
     }
 
     private record Person(String name) {
