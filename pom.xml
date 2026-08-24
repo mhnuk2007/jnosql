@@ -484,17 +484,17 @@
                     <excludes></excludes>
                     <licenses>
                         <license implementation="org.apache.rat.analysis.license.SimplePatternBasedLicense">
-                            <licenseFamilyCategory>AL20-EPL10</licenseFamilyCategory>
-                            <licenseFamilyName>Apache License, 2.0 and Eclipse Public License, 1.0</licenseFamilyName>
+                            <licenseFamilyCategory>AL20-EPL20</licenseFamilyCategory>
+                            <licenseFamilyName>Apache License, 2.0 and Eclipse Public License, 2.0</licenseFamilyName>
                             <patterns>
                                 <pattern>Apache License v2.0</pattern>
-                                <pattern>Eclipse Public License v1.0</pattern>
+                                <pattern>Eclipse Public License 2.0</pattern>
                             </patterns>
                         </license>
                     </licenses>
                     <licenseFamilies>
                         <licenseFamily implementation="org.apache.rat.license.SimpleLicenseFamily">
-                            <familyName>Apache License, 2.0 and Eclipse Public License, 1.0</familyName>
+                            <familyName>Apache License, 2.0 and Eclipse Public License, 2.0</familyName>
                         </licenseFamily>
                     </licenseFamilies>
                 </configuration>
