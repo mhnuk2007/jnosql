@@ -14,7 +14,6 @@
  *   Mohan Lal
  *
  */
-
 package org.eclipse.jnosql.communication.util;
 
 import java.util.Objects;
@@ -27,19 +26,17 @@ public final class ServiceLoaderUtils {
     }
 
     /**
-     * Loads the first available service provider using the thread context
-     * class loader, falling back to the class loader of the reference class.
+     * Loads the first available implementation of the given service.
      *
-     * <p>The thread context class loader is tried first, following the same
-     * class-loader semantics as {@link ServiceLoader#load(Class)}. If no
-     * provider is found, the class loader that loaded {@code referenceClass}
-     * is used as a fallback.</p>
+     * <p>The thread context class loader is tried first, followed by the class
+     * loader of the reference class when they differ. This supports environments
+     * where the context class loader and the class loader that loaded the API
+     * classes are different.</p>
      *
      * @param service the service type
-     * @param referenceClass the class whose class loader is used as a fallback
+     * @param referenceClass a class whose class loader is used as a fallback
      * @param <T> the service type
-     * @return the first available service provider, or an empty {@link Optional}
-     *         if no provider is found
+     * @return the first available service implementation, or an empty optional
      * @throws NullPointerException if {@code service} or {@code referenceClass}
      *         is {@code null}
      */
