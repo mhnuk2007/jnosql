@@ -18,6 +18,7 @@
 package org.eclipse.jnosql.communication.util;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.ServiceLoader;
@@ -37,7 +38,7 @@ import java.util.concurrent.ConcurrentHashMap;
  * scan runs at most once for a given combination rather than on every call.</p>
  *
  * <p><strong>Known limitation:</strong> the cache holds a strong reference to
- * every {@link ClassLoader} it has ever seen, for the lifetime of the JVM.
+ * every {@code ClassLoader} it has ever seen, for the lifetime of the JVM.
  * This is safe for class loaders that live for the lifetime of the
  * application (the common case), but is not yet safe for environments that
  * create and discard class loaders repeatedly at runtime — for example, a
@@ -56,10 +57,10 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public final class ServiceResolver {
 
-    private static final ConcurrentHashMap<CacheKey, Optional<?>> FIRST_CACHE =
+    private static final Map<CacheKey, Optional<?>> FIRST_CACHE =
             new ConcurrentHashMap<>();
 
-    private static final ConcurrentHashMap<CacheKey, List<?>> ALL_CACHE =
+    private static final Map<CacheKey, List<?>> ALL_CACHE =
             new ConcurrentHashMap<>();
 
     private ServiceResolver() {
@@ -84,7 +85,8 @@ public final class ServiceResolver {
         Objects.requireNonNull(referenceClass, "referenceClass is required");
 
         CacheKey key = CacheKey.of(service, referenceClass);
-        return (Optional<T>) FIRST_CACHE.computeIfAbsent(key, ServiceResolver::resolveFirst);
+        return (Optional<T>) FIRST_CACHE.computeIfAbsent(
+                key, ServiceResolver::resolveFirst);
     }
 
     /**
@@ -112,7 +114,8 @@ public final class ServiceResolver {
         Objects.requireNonNull(referenceClass, "referenceClass is required");
 
         CacheKey key = CacheKey.of(service, referenceClass);
-        return (List<T>) ALL_CACHE.computeIfAbsent(key, ServiceResolver::resolveAll);
+        return (List<T>) ALL_CACHE.computeIfAbsent(
+                key, ServiceResolver::resolveAll);
     }
 
     /**
@@ -138,7 +141,8 @@ public final class ServiceResolver {
             return provider;
         }
 
-        if (!Objects.equals(key.referenceClassLoader, key.contextClassLoader)) {
+        if (!Objects.equals(
+                key.referenceClassLoader, key.contextClassLoader)) {
             return ServiceLoader.load(service, key.referenceClassLoader)
                     .findFirst();
         }
@@ -159,7 +163,8 @@ public final class ServiceResolver {
             return viaContext;
         }
 
-        if (!Objects.equals(key.referenceClassLoader, key.contextClassLoader)) {
+        if (!Objects.equals(
+                key.referenceClassLoader, key.contextClassLoader)) {
             return ServiceLoader.load(service, key.referenceClassLoader)
                     .stream()
                     .map(ServiceLoader.Provider::get)
@@ -182,8 +187,8 @@ public final class ServiceResolver {
         private final ClassLoader referenceClassLoader;
 
         private CacheKey(Class<?> service,
-                          ClassLoader contextClassLoader,
-                          ClassLoader referenceClassLoader) {
+                         ClassLoader contextClassLoader,
+                         ClassLoader referenceClassLoader) {
             this.service = service;
             this.contextClassLoader = contextClassLoader;
             this.referenceClassLoader = referenceClassLoader;
@@ -205,13 +210,16 @@ public final class ServiceResolver {
                 return false;
             }
             return service.equals(that.service)
-                    && Objects.equals(contextClassLoader, that.contextClassLoader)
-                    && Objects.equals(referenceClassLoader, that.referenceClassLoader);
+                    && Objects.equals(
+                    contextClassLoader, that.contextClassLoader)
+                    && Objects.equals(
+                    referenceClassLoader, that.referenceClassLoader);
         }
 
         @Override
         public int hashCode() {
-            return Objects.hash(service, contextClassLoader, referenceClassLoader);
+            return Objects.hash(
+                    service, contextClassLoader, referenceClassLoader);
         }
     }
 }
