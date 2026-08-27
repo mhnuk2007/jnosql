@@ -16,8 +16,8 @@ package org.eclipse.jnosql.mapping.metadata;
 
 
 import jakarta.data.repository.DataRepository;
+import org.eclipse.jnosql.communication.util.ServiceResolver;
 
-import java.util.ServiceLoader;
 import java.util.Set;
 
 /**
@@ -28,9 +28,8 @@ import java.util.Set;
  */
 public interface ClassScanner {
 
-    ClassScanner INSTANCE =  ServiceLoader.load(ClassScanner.class)
-            .findFirst()
-            .orElseThrow(() ->   new MetadataException("No implementation of ClassScanner found via ServiceLoader"));
+    ClassScanner INSTANCE = ServiceResolver.loadFirst(ClassScanner.class, ClassScanner.class)
+            .orElseThrow(() -> new MetadataException("No implementation of ClassScanner found via ServiceLoader"));
 
     /**
      * Returns a set of classes that are annotated with the {@link jakarta.nosql.Entity} annotation.

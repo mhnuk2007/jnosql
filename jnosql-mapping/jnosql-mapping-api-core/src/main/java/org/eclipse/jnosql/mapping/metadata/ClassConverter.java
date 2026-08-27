@@ -14,8 +14,8 @@
  */
 package org.eclipse.jnosql.mapping.metadata;
 
+import org.eclipse.jnosql.communication.util.ServiceResolver;
 
-import java.util.ServiceLoader;
 import java.util.function.Function;
 
 /**
@@ -37,14 +37,13 @@ import java.util.function.Function;
 public interface ClassConverter extends Function<Class<?>, EntityMetadata> {
 
 
-    ClassConverter INSTANCE = ServiceLoader.load(ClassConverter.class)
-            .findFirst()
+    ClassConverter INSTANCE = ServiceResolver.loadFirst(ClassConverter.class, ClassConverter.class)
             .orElseThrow(() -> new MetadataException("No implementation of ClassConverter found via ServiceLoader"));
 
     /**
-     * Loads and returns an instance of the {@link ClassScanner} implementation using the ServiceLoader mechanism.
+     * Loads and returns an instance of the {@link ClassConverter} implementation using the ServiceLoader mechanism.
      *
-     * @return An instance of the loaded {@link ClassScanner} implementation.
+     * @return An instance of the loaded {@link ClassConverter} implementation.
      * @throws IllegalStateException If no suitable implementation is found.
      */
     static ClassConverter load() {
