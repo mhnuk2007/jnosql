@@ -2,11 +2,11 @@
  *
  *  Copyright (c) 2026 Contributors to the Eclipse Foundation
  *   All rights reserved. This program and the accompanying materials
- *   are made available under the terms of the Eclipse Public License v1.0
+ *   are made available under the terms of the Eclipse Public License 2.0
  *   and Apache License v2.0 which accompanies this distribution.
- *   The Eclipse Public License is available at http://www.eclipse.org/legal/epl-v10.html
- *   and the Apache License v2.0 which accompanies this distribution is available at
- *   http://www.opensource.org/licenses/apache2.0.php.
+ *   The Eclipse Public License is available at https://www.eclipse.org/legal/epl-2.0
+ *   and the Apache License v2.0 is available at
+ *   https://www.apache.org/licenses/LICENSE-2.0.
  *
  *   You may elect to redistribute this code under either of these licenses.
  *
@@ -29,26 +29,24 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
-class ServiceResolverTest {
+class ServiceDiscoveryTest {
 
     private final ClassLoader originalClassLoader =
             Thread.currentThread().getContextClassLoader();
 
     @AfterEach
-    void restoreContextClassLoaderAndClearCache() {
+    void restoreContextClassLoader() {
         Thread.currentThread().setContextClassLoader(originalClassLoader);
-        ServiceResolver.clearCaches();
     }
 
     @Nested
-    @DisplayName("When the loading is performed")
-    class WhenTheLoading {
+    @DisplayName("When loading a provider")
+    class WhenTheProviderLoading {
 
         @Test
-        @DisplayName("Should return a provider when available through the context class loader")
+        @DisplayName("Should return a provider from the context class loader")
         void shouldLoadUsingContextClassLoader() {
-            // Given: the context class loader is explicitly set to the loader
-            // that already provides TypeReferenceReader
+            // Given
             var service = TypeReferenceReader.class;
             var referenceClass = TypeReferenceReader.class;
             Thread.currentThread().setContextClassLoader(
@@ -56,14 +54,16 @@ class ServiceResolverTest {
 
             // When
             Optional<TypeReferenceReader> result =
-                    ServiceResolver.loadFirst(service, referenceClass);
+                    ServiceDiscovery.of(service, referenceClass).first();
 
             // Then
-            assertThat(result).isPresent();
+            assertThat(result)
+                    .as("provider discovered through the context class loader")
+                    .isPresent();
         }
 
         @Test
-        @DisplayName("Should fall back to the reference class loader when the context class loader cannot find a provider")
+        @DisplayName("Should fall back to the reference class loader when the context class loader has no provider")
         void shouldFallBackToReferenceClassLoaderWhenContextCannotFindProvider() {
             // Given
             var service = TypeReferenceReader.class;
@@ -73,10 +73,12 @@ class ServiceResolverTest {
 
             // When
             Optional<TypeReferenceReader> result =
-                    ServiceResolver.loadFirst(service, referenceClass);
+                    ServiceDiscovery.of(service, referenceClass).first();
 
             // Then
-            assertThat(result).isPresent();
+            assertThat(result)
+                    .as("provider discovered through the reference class loader")
+                    .isPresent();
         }
 
         @Test
@@ -89,18 +91,18 @@ class ServiceResolverTest {
 
             // When
             Optional<TypeReferenceReader> result =
-                    ServiceResolver.loadFirst(service, referenceClass);
+                    ServiceDiscovery.of(service, referenceClass).first();
 
             // Then
-            assertThat(result).isPresent();
+            assertThat(result)
+                    .as("provider discovered through the reference class loader")
+                    .isPresent();
         }
 
         @Test
-        @DisplayName("Should return empty when no provider is found through either class loader")
+        @DisplayName("Should return an empty optional when neither class loader provides a provider")
         void shouldReturnEmptyWhenNoProviderExists() {
-            // Given: a class loader that defines its own copy of Marker and
-            // deliberately reports no META-INF/services resources, so
-            // ServiceLoader cannot discover a provider through it
+            // Given
             var emptyClassLoader = new EmptyServicesClassLoader();
             Class<?> referenceClass = emptyClassLoader.loadMarker();
             Thread.currentThread().setContextClassLoader(emptyClassLoader);
@@ -108,19 +110,18 @@ class ServiceResolverTest {
 
             // When
             Optional<TypeReferenceReader> result =
-                    ServiceResolver.loadFirst(service, referenceClass);
+                    ServiceDiscovery.of(service, referenceClass).first();
 
             // Then
-            assertThat(result).isEmpty();
+            assertThat(result)
+                    .as("no provider is visible from either class loader")
+                    .isEmpty();
         }
 
         @Test
-        @DisplayName("Should return empty when the context and reference class loaders are equal")
+        @DisplayName("Should return an empty optional when the context and reference class loaders are the same")
         void shouldReturnEmptyWhenContextAndReferenceClassLoadersAreTheSame() {
-            // Given: the same empty-services class loader instance is used
-            // both as the thread's context class loader and as the loader
-            // that defines the reference class, guaranteeing
-            // referenceClassLoader.equals(contextClassLoader) by construction
+            // Given
             var emptyClassLoader = new EmptyServicesClassLoader();
             Class<?> referenceClass = emptyClassLoader.loadMarker();
             Thread.currentThread().setContextClassLoader(emptyClassLoader);
@@ -128,10 +129,12 @@ class ServiceResolverTest {
 
             // When
             Optional<TypeReferenceReader> result =
-                    ServiceResolver.loadFirst(service, referenceClass);
+                    ServiceDiscovery.of(service, referenceClass).first();
 
             // Then
-            assertThat(result).isEmpty();
+            assertThat(result)
+                    .as("no provider is visible when both loaders are empty")
+                    .isEmpty();
         }
     }
 
@@ -140,9 +143,7 @@ class ServiceResolverTest {
      * (rather than delegating to its parent), and reports no resources for
      * any {@code META-INF/services} provider-configuration file. Used to
      * deterministically force the "no provider found" outcome of
-     * {@link ServiceResolver#loadFirst}, independent of whatever
-     * providers happen to be visible through ambient JVM or module-path
-     * class loaders in a given environment.
+     * {@link ServiceDiscovery#first()} independent of ambient providers.
      */
     private static final class EmptyServicesClassLoader extends ClassLoader {
 
@@ -156,17 +157,21 @@ class ServiceResolverTest {
                 byte[] bytes;
                 try (var in = EmptyServicesClassLoader.class.getClassLoader()
                         .getResourceAsStream(path)) {
-                    bytes = Objects.requireNonNull(in, "Marker class bytes not found")
+                    bytes = Objects.requireNonNull(
+                                    in, "Marker class bytes not found")
                             .readAllBytes();
                 }
-                return defineClass(Marker.class.getName(), bytes, 0, bytes.length);
+                return defineClass(
+                        Marker.class.getName(), bytes, 0, bytes.length);
             } catch (java.io.IOException e) {
-                throw new IllegalStateException("Unable to define Marker for test", e);
+                throw new IllegalStateException(
+                        "Unable to define Marker for test", e);
             }
         }
 
         @Override
-        protected java.util.Enumeration<java.net.URL> findResources(String name) {
+        protected java.util.Enumeration<java.net.URL> findResources(
+                String name) {
             return java.util.Collections.emptyEnumeration();
         }
 
@@ -178,14 +183,13 @@ class ServiceResolverTest {
 
     /**
      * A no-op class redefined by {@link EmptyServicesClassLoader} so that
-     * its {@code getClassLoader()} reports that isolated loader rather than
-     * this test module's own loader.
+     * its {@code getClassLoader()} reports that isolated loader.
      */
     private static final class Marker {
     }
 
     @Nested
-    @DisplayName("When the validation is performed")
+    @DisplayName("When validating the discovery")
     class WhenTheValidation {
 
         @Test
@@ -197,7 +201,8 @@ class ServiceResolverTest {
 
             // When / Then
             assertThatNullPointerException()
-                    .isThrownBy(() -> ServiceResolver.loadFirst(service, referenceClass))
+                    .isThrownBy(() ->
+                            ServiceDiscovery.of(service, referenceClass))
                     .withMessage("service is required");
         }
 
@@ -210,43 +215,18 @@ class ServiceResolverTest {
 
             // When / Then
             assertThatNullPointerException()
-                    .isThrownBy(() -> ServiceResolver.loadFirst(service, referenceClass))
-                    .withMessage("referenceClass is required");
-        }
-
-        @Test
-        @DisplayName("Should reject a null service type for loadAll")
-        void shouldRejectNullServiceForLoadAll() {
-            // Given
-            Class<TypeReferenceReader> service = null;
-            var referenceClass = TypeReferenceReader.class;
-
-            // When / Then
-            assertThatNullPointerException()
-                    .isThrownBy(() -> ServiceResolver.loadAll(service, referenceClass))
-                    .withMessage("service is required");
-        }
-
-        @Test
-        @DisplayName("Should reject a null reference class for loadAll")
-        void shouldRejectNullReferenceClassForLoadAll() {
-            // Given
-            var service = TypeReferenceReader.class;
-            Class<?> referenceClass = null;
-
-            // When / Then
-            assertThatNullPointerException()
-                    .isThrownBy(() -> ServiceResolver.loadAll(service, referenceClass))
+                    .isThrownBy(() ->
+                            ServiceDiscovery.of(service, referenceClass))
                     .withMessage("referenceClass is required");
         }
     }
 
     @Nested
-    @DisplayName("When loading every provider")
-    class WhenLoadingEveryProvider {
+    @DisplayName("When loading all providers")
+    class WhenTheAllProviderLoading {
 
         @Test
-        @DisplayName("Should return every provider found through the context class loader")
+        @DisplayName("Should return every provider from the context class loader")
         void shouldLoadAllUsingContextClassLoader() {
             // Given
             var service = TypeReferenceReader.class;
@@ -255,14 +235,16 @@ class ServiceResolverTest {
                     TypeReferenceReader.class.getClassLoader());
 
             // When
-            var result = ServiceResolver.loadAll(service, referenceClass);
+            var result = ServiceDiscovery.of(service, referenceClass).all();
 
             // Then
-            assertThat(result).isNotEmpty();
+            assertThat(result)
+                    .as("providers discovered through the context class loader")
+                    .isNotEmpty();
         }
 
         @Test
-        @DisplayName("Should return an empty list when no provider is found through either class loader")
+        @DisplayName("Should return an empty list when neither class loader provides a provider")
         void shouldReturnEmptyListWhenNoProviderExists() {
             // Given
             var emptyClassLoader = new EmptyServicesClassLoader();
@@ -271,11 +253,30 @@ class ServiceResolverTest {
             var service = TypeReferenceReader.class;
 
             // When
-            var result = ServiceResolver.loadAll(service, referenceClass);
+            var result = ServiceDiscovery.of(service, referenceClass).all();
 
             // Then
-            assertThat(result).isEmpty();
+            assertThat(result)
+                    .as("no providers are visible from either class loader")
+                    .isEmpty();
+        }
+
+        @Test
+        @DisplayName("Should fall back to the reference class loader when the context class loader has no providers")
+        void shouldFallBackToReferenceClassLoaderForAll() {
+            // Given
+            var service = TypeReferenceReader.class;
+            var referenceClass = TypeReferenceReader.class;
+            Thread.currentThread().setContextClassLoader(new ClassLoader(null) {
+            });
+
+            // When
+            var result = ServiceDiscovery.of(service, referenceClass).all();
+
+            // Then
+            assertThat(result)
+                    .as("providers discovered through the reference class loader")
+                    .isNotEmpty();
         }
     }
-
 }

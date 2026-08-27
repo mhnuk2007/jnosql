@@ -16,7 +16,7 @@
 package org.eclipse.jnosql.mapping.metadata;
 
 import jakarta.nosql.NoSQLException;
-import org.eclipse.jnosql.communication.util.ServiceResolver;
+import org.eclipse.jnosql.communication.util.ServiceDiscovery;
 
 import java.util.List;
 
@@ -31,9 +31,11 @@ import java.util.List;
 public interface ConstructorBuilder {
 
     ConstructorBuilderSupplier CONSTRUCTOR_BUILDER_SUPPLIER =
-            ServiceResolver.loadFirst(
+            ServiceDiscovery
+                    .of(
                             ConstructorBuilderSupplier.class,
                             ConstructorBuilder.class)
+                    .first()
                     .orElseThrow(() ->
                             new NoSQLException(
                                     "There is not implementation for the ConstructorBuilderSupplier"));

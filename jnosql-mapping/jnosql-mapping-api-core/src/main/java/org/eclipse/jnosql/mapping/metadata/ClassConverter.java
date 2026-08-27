@@ -11,10 +11,11 @@
  *   Contributors:
  *
  *   Otavio Santana
+ *   Mohan Lal
  */
 package org.eclipse.jnosql.mapping.metadata;
 
-import org.eclipse.jnosql.communication.util.ServiceResolver;
+import org.eclipse.jnosql.communication.util.ServiceDiscovery;
 
 import java.util.function.Function;
 
@@ -36,9 +37,12 @@ import java.util.function.Function;
  */
 public interface ClassConverter extends Function<Class<?>, EntityMetadata> {
 
-
-    ClassConverter INSTANCE = ServiceResolver.loadFirst(ClassConverter.class, ClassConverter.class)
-            .orElseThrow(() -> new MetadataException("No implementation of ClassConverter found via ServiceLoader"));
+    ClassConverter INSTANCE = ServiceDiscovery
+            .of(ClassConverter.class, ClassConverter.class)
+            .first()
+            .orElseThrow(() ->
+                    new MetadataException(
+                            "No implementation of ClassConverter found via ServiceLoader"));
 
     /**
      * Loads and returns an instance of the {@link ClassConverter} implementation using the ServiceLoader mechanism.
