@@ -32,18 +32,12 @@ import java.util.ServiceLoader;
  * Quarkus/Vert.x event-loop thread whose context class loader does not see
  * the application's {@code META-INF/services} entries.</p>
  *
- * <p>An instance lazily selects and retains a {@link ServiceLoader}. The
- * selected loader is reused by subsequent calls to {@link #first()} and
- * {@link #all()}, allowing {@code ServiceLoader} to maintain its own provider
- * cache. This class does not maintain a global cache of providers or class
- * loaders; the lifecycle of a {@code ServiceDiscovery} instance belongs to
- * its caller.</p>
- *
- * <p>If a provider configuration is discoverable through the TCCL but that
- * provider later fails to load or instantiate, the resulting
- * {@link java.util.ServiceConfigurationError} is allowed to propagate. The
- * reference-class-loader fallback is intended to address class-loader
- * visibility, not to hide a broken provider that is already discoverable.</p>
+ * <p>An instance lazily discovers and resolves the providers as a
+ * {@code List}. Discovery runs at most once per instance; subsequent calls
+ * to {@link #first()} and {@link #all()} reuse the retained list rather
+ * than invoking {@link ServiceLoader} again. This class does not maintain a
+ * global cache of providers or class loaders; the lifecycle of a
+ * {@code ServiceDiscovery} instance belongs to its caller.</p>
  *
  * <p>This abstraction is not suitable for service lookups that must execute
  * from within a caller's own named JPMS module. Such call sites may need to
@@ -57,7 +51,7 @@ public final class ServiceDiscovery<T> {
     private final Class<T> service;
     private final Class<?> referenceClass;
 
-    private ServiceLoader<T> serviceLoader;
+    private List<T> services;
 
     private ServiceDiscovery(
             Class<T> service,
@@ -87,14 +81,15 @@ public final class ServiceDiscovery<T> {
      * Returns the first available implementation of this discovery's service
      * type.
      *
-     * <p>The underlying {@link ServiceLoader} is initialized lazily on the
-     * first access and reused by subsequent calls.</p>
+     * <p>Discovery runs lazily on first access and is reused by subsequent
+     * calls.</p>
      *
      * @return the first available service implementation, or an empty
      *         optional when no implementation is available
      */
-    public synchronized Optional<T> first() {
-        return loader().findFirst();
+    public Optional<T> first() {
+        List<T> found = services();
+        return found.isEmpty() ? Optional.empty() : Optional.of(found.get(0));
     }
 
     /**
@@ -107,39 +102,37 @@ public final class ServiceDiscovery<T> {
      * @return every available service implementation found through the
      *         selected class loader; empty when none are found
      */
-    public synchronized List<T> all() {
-        return loader()
-                .stream()
-                .map(ServiceLoader.Provider::get)
-                .toList();
+    public List<T> all() {
+        return services();
     }
 
-    private ServiceLoader<T> loader() {
-        if (serviceLoader == null) {
-            serviceLoader = createLoader();
+    private synchronized List<T> services() {
+        if (services == null) {
+            services = discover();
         }
-        return serviceLoader;
+        return services;
     }
 
-    private ServiceLoader<T> createLoader() {
+    private List<T> discover() {
         ClassLoader contextClassLoader =
                 Thread.currentThread().getContextClassLoader();
 
         if (contextClassLoader != null) {
-            ServiceLoader<T> contextLoader =
-                    ServiceLoader.load(service, contextClassLoader);
+            List<T> discovered = ServiceLoader.load(service, contextClassLoader)
+                    .stream()
+                    .map(ServiceLoader.Provider::get)
+                    .toList();
 
-            // This checks provider metadata without instantiating the provider.
-            // If the provider is discoverable but later fails to instantiate,
-            // allow that ServiceConfigurationError to propagate rather than
-            // silently falling back to another class loader.
-            if (contextLoader.stream().findFirst().isPresent()) {
-                return contextLoader;
+            if (!discovered.isEmpty()) {
+                return discovered;
             }
         }
 
         ClassLoader referenceClassLoader = referenceClass.getClassLoader();
 
-        return ServiceLoader.load(service, referenceClassLoader);
+        return ServiceLoader.load(service, referenceClassLoader)
+                .stream()
+                .map(ServiceLoader.Provider::get)
+                .toList();
     }
 }
