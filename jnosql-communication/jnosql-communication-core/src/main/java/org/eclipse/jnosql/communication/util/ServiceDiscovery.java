@@ -98,14 +98,14 @@ public final class ServiceDiscovery<T> {
     }
 
     /**
-     * Returns every available implementation of this discovery's service
-     * type.
+     * Returns every available implementation visible through this
+     * discovery's selected class loader (see {@link #first()} for how the
+     * loader is selected). Providers visible only through the other,
+     * non-selected class loader are not included — the two are never
+     * merged.
      *
-     * <p>The same lazily initialized {@link ServiceLoader} used by
-     * {@link #first()} is used for this operation.</p>
-     *
-     * @return every available service implementation; empty when none are
-     *         found
+     * @return every available service implementation found through the
+     *         selected class loader; empty when none are found
      */
     public synchronized List<T> all() {
         return loader()
@@ -129,7 +129,7 @@ public final class ServiceDiscovery<T> {
             ServiceLoader<T> contextLoader =
                     ServiceLoader.load(service, contextClassLoader);
 
-            // Check provider metadata without instantiating the provider.
+            // This checks provider metadata without instantiating the provider.
             // If the provider is discoverable but later fails to instantiate,
             // allow that ServiceConfigurationError to propagate rather than
             // silently falling back to another class loader.
