@@ -15,12 +15,10 @@
  */
 package org.eclipse.jnosql.mapping.metadata;
 
-
 import jakarta.nosql.NoSQLException;
+import org.eclipse.jnosql.communication.util.ServiceDiscovery;
 
 import java.util.List;
-import java.util.Optional;
-import java.util.ServiceLoader;
 
 /**
  * The ConstructorBuilder interface provides a way to create an entity from a constructor.
@@ -32,38 +30,15 @@ import java.util.ServiceLoader;
  */
 public interface ConstructorBuilder {
 
-    ConstructorBuilderSupplier CONSTRUCTOR_BUILDER_SUPPLIER = loadConstructorBuilderSupplier();
-
-    /**
-     * Loads the {@link ConstructorBuilderSupplier} service provider.
-     * <p>
-     * The thread context class loader (TCCL) is tried first, preserving the normal
-     * behavior expected by application servers, OSGi, and similar environments that
-     * manage the TCCL explicitly. If the TCCL cannot see the provider — for example,
-     * when this class is first initialized from a thread whose TCCL does not have
-     * visibility into the application's {@code META-INF/services} entries, such as a
-     * Vert.x event-loop thread in a reactive Quarkus application — the class loader
-     * that loaded {@link ConstructorBuilder} itself is used as a fallback.
-     *
-     * @return the resolved {@link ConstructorBuilderSupplier}
-     * @throws NoSQLException when no provider can be found via either class loader
-     */
-    private static ConstructorBuilderSupplier loadConstructorBuilderSupplier() {
-        ClassLoader tccl = Thread.currentThread().getContextClassLoader();
-
-        if (tccl != null) {
-            Optional<ConstructorBuilderSupplier> viaTccl =
-                    ServiceLoader.load(ConstructorBuilderSupplier.class, tccl).findFirst();
-            if (viaTccl.isPresent()) {
-                return viaTccl.get();
-            }
-        }
-
-        return ServiceLoader.load(ConstructorBuilderSupplier.class, ConstructorBuilder.class.getClassLoader())
-                .findFirst()
-                .orElseThrow(() ->
-                        new NoSQLException("There is not implementation for the ConstructorBuilderSupplier"));
-    }
+    ConstructorBuilderSupplier CONSTRUCTOR_BUILDER_SUPPLIER =
+            ServiceDiscovery
+                    .of(
+                            ConstructorBuilderSupplier.class,
+                            ConstructorBuilder.class)
+                    .first()
+                    .orElseThrow(() ->
+                            new NoSQLException(
+                                    "There is not implementation for the ConstructorBuilderSupplier"));
 
     /**
      * Returns the constructor parameters.
@@ -86,18 +61,20 @@ public interface ConstructorBuilder {
 
     /**
      * Builds and returns the entity using the provided constructor parameters.
+     *
      * @param <T> the entity type
      * @return the built entity
      */
     <T> T build();
 
     /**
-     *  Creates a new instance of the {@link ConstructorBuilder} interface using the provided
-     *  * {@link ConstructorMetadata}.
+     * Creates a new instance of the {@link ConstructorBuilder} interface using the provided
+     * {@link ConstructorMetadata}.
+     *
      * @param constructor the constructor
      * @return the ConstructorBuilder instance
      */
-    static ConstructorBuilder of(ConstructorMetadata constructor){
+    static ConstructorBuilder of(ConstructorMetadata constructor) {
         return CONSTRUCTOR_BUILDER_SUPPLIER.apply(constructor);
     }
 }
